@@ -224,6 +224,11 @@ supports-color@^5.5.0:
   dependencies:
     has-flag "^3.0.0"
 
+tic-tac-toe-message@^0.1.5:
+  version "0.1.5"
+  resolved "https://registry.yarnpkg.com/tic-tac-toe-message/-/tic-tac-toe-message-0.1.5.tgz#ab4a2af66e648507fd55077e5901d0ed09e9d0e1"
+  integrity sha512-ZNT80yqNMi3uB22HUIJ/YP+jcQnLfB0qfnsNqeB28TYUT7rmBKLt1SzGDhlNi0zM3USoj+VlX6JmMf8bF6X7gw==
+
 to-regex-range@^5.0.1:
   version "5.0.1"
   resolved "https://registry.yarnpkg.com/to-regex-range/-/to-regex-range-5.0.1.tgz#1648c44aae7c8d988a326018ed72f5b4dd0392e4"

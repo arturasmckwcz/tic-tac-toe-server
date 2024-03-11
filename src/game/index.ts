@@ -1,60 +1,93 @@
 import { v4 as uuid } from 'uuid';
 
-import type { Move } from '../types';
+import { Move, Player } from 'tic-tac-toe-message';
 import { User } from '../user';
+import { createLogger } from '../ws/utils';
 
-enum Player {
-  X = 'x',
-  O = 'o',
+export interface GamesAvailable {
+  gameId: string;
+  player: Player | undefined;
 }
+
 const games: Game[] = [];
 
-export function gameCreate(xPlayer?: User) {
-  const game = new Game(xPlayer);
+const gameLog = createLogger('Game constructor').info;
+
+function getRandomPlayer() {
+  return Math.round(Math.random()) ? Player.X : Player.O;
+}
+
+export function gameCreate({ player, user }: { player?: Player; user?: User }) {
+  const game = new Game(player, user);
   games.push(game);
   return game.id;
 }
 
-export function gameJoinAsX(id: string, user: User) {
-  const { game } = gameGetById(id);
+export function gameJoin(gameId: string, user: User, player?: Player) {
+  const { game } = gameGetById(gameId);
   if (game) {
-    game.setPlayer(Player.X, user);
+    // 1. if the player is defined and a corresponding user is not assigned yet set the user as the player
+    // 2. else return null
+    // 3. if the player is undefined then
+    // 4. -- if no user assigned yet set the user as random player
+    // 5. -- if only one user is set then set the user as an opponent
+    // 6. -- if both users are set already then return null
+    if (player) {
+      if (!game[player]) {
+        game.setPlayer(player, user);
+        return player;
+      } else {
+        return null;
+      }
+    } else {
+      const countUser = gameGetUsers(gameId).length;
+      switch (countUser) {
+        case 0:
+          const randomPlayer = getRandomPlayer();
+          game.setPlayer(randomPlayer, user);
+          return randomPlayer;
+        case 1:
+          if (game.x) {
+            game.setPlayer(Player.O, user);
+            return Player.O;
+          } else {
+            game.setPlayer(Player.X, user);
+            return Player.X;
+          }
+        case 2:
+          return null;
+      }
+    }
   }
 
-  return game?.id;
+  return null;
 }
 
-export function gameJoinAsO(id: string, user: User) {
-  const { game } = gameGetById(id);
-  if (game) {
-    game.setPlayer(Player.O, user);
-  }
-
-  return game?.id;
+export function gameIdsAvailable(userId: string): GamesAvailable[] {
+  // 1. not both users assigned, i.e. game's available to join in
+  // 2. provided userId doesn't assigned to one of them
+  return games
+    .filter(({ o, x }) => o?.id !== userId && x?.id !== userId && (!o || !x))
+    .map(({ id, o, x }) => ({
+      gameId: id,
+      player: o ? Player.X : x ? Player.O : undefined,
+    }));
 }
 
-export function gameIdsAll() {
-  return { games: games.map(({ id }) => id) };
+function gameGetById(gameId: string | null) {
+  const idx = games.findIndex(({ id }) => id === gameId);
+  return idx !== -1 ? { game: games[idx], idx } : { game: null, idx: null };
 }
 
-export function gameIdsNoO() {
-  return games.filter(({ o }) => !o).map(({ id }) => id);
-}
-
-function gameGetById(gameId: string) {
-  const result: { game?: Game; idx?: number } = {};
-  result.game = games.find(({ id }, idx) => {
-    if (id === gameId) {
-      result.idx = idx;
-      return true;
-    } else return false;
-  });
-  return result;
+export function gamesDeleteByUser(userId: string) {
+  games
+    .filter(({ o, x }) => o?.id === userId || x?.id === userId)
+    .forEach(({ id }) => gameDelete(id));
 }
 
 export function gameDelete(gameId: string) {
   const { idx } = gameGetById(gameId);
-  if (idx !== undefined) games.splice(idx, 1);
+  if (idx !== null) games.splice(idx, 1);
 }
 
 export function gameMakeMove(gameId: string, playerId: string, move: Move) {
@@ -65,24 +98,34 @@ export function gameMakeMove(gameId: string, playerId: string, move: Move) {
   return { isGameOver: false, result: null };
 }
 
-export function gameGetPlayers(gameId: string) {
+export function gameGetOpponent(gameId: string | null, userId: string) {
   const { game } = gameGetById(gameId);
-  const players: User[] = [];
+  let result: User | null = null;
+  if (game)
+    if (userId === game.x?.id) result = game.o;
+    else if (userId === game.o?.id) result = game.x;
+  return result; // TODO: it returns o if both users are null
+}
+
+export function gameGetUsers(gameId: string): User[] {
+  const { game } = gameGetById(gameId);
   if (game) {
-    if (game.x) players.push(game.x);
-    if (game.o) players.push(game.o);
-    return players;
+    return game.getUsers().filter(Boolean) as User[];
   }
   return [];
 }
 
 export class Game {
-  constructor(xPlayer?: User) {
+  constructor(player?: Player, user?: User) {
     this.id = uuid();
-    this.x = xPlayer || null;
-    this.o = null;
+    this.x = player === Player.X && user ? user : null;
+    this.o = player === Player.O && user ? user : null;
     this.moves = [];
     this.boardSize = 3;
+    this._isReady = false;
+    if (process.env.NODE_ENV === 'develop') {
+      gameLog({ ...this, o: this.o?.name, x: this.x?.name });
+    }
   }
 
   id: string;
@@ -90,15 +133,20 @@ export class Game {
   o: User | null;
   moves: { player: Player; move: Move }[];
   boardSize: number;
+  _isReady: boolean;
 
   setPlayer(player: Player, user: User) {
-    if (player === Player.O) this.o = user;
-    if (player === Player.X) this.x = user;
-    console.log('DEBUG:Game:setPlayer:players:', [this.x?.id, this.o?.id]);
+    if (!this.o && player === Player.O) this.o = user;
+    if (!this.x && player === Player.X) this.x = user;
+    this._isReady = !!this.x && !!this.o;
   }
 
-  isReady() {
-    return this.x && this.o;
+  get isReady() {
+    return this._isReady;
+  }
+
+  getUsers() {
+    return [this.x, this.o];
   }
 
   playerFromUser(userId: string) {
@@ -132,20 +180,16 @@ export class Game {
     );
   }
 
-  move(playerId: string, move: Move) {
+  move(userId: string, move: Move) {
     if (
-      this.isReady() &&
+      this._isReady &&
       this.isMoveValid(move) &&
-      this.playerFromUser(playerId) === this.next() &&
+      this.playerFromUser(userId) === this.next() &&
       this.isEmpty(move)
     ) {
-      console.log('DEBUG:Game:move:playerId,players:', playerId, [
-        this.x?.id,
-        this.o?.id,
-      ]);
       let player: Player;
-      if (playerId === this.x?.id) player = Player.X;
-      else if (playerId === this.o?.id) player = Player.O;
+      if (userId === this.x?.id) player = Player.X;
+      else if (userId === this.o?.id) player = Player.O;
       else return null;
 
       return this.moves.push({ player, move });
@@ -161,7 +205,6 @@ export class Game {
     this.moves.forEach(({ player, move }) => {
       board[move.v][move.h] = player;
     });
-    console.log('DEBUG:Game:conclude:board:\n', board);
 
     const lineCheck = (line: string[]) =>
       line.every(item => item === line[0] && item !== '');
@@ -186,22 +229,30 @@ export class Game {
     };
 
     for (const horizontal of board) {
-      if (lineCheck(horizontal))
+      if (lineCheck(horizontal)) {
+        this._isReady = false;
         return { isGameOver: true, result: horizontal[0] as Player };
+      }
     }
 
     for (const vertical of columns()) {
-      if (lineCheck(vertical))
+      if (lineCheck(vertical)) {
+        this._isReady = false;
         return { isGameOver: true, result: vertical[0] as Player };
+      }
     }
 
     for (const diagonal of diagonals()) {
-      if (lineCheck(diagonal))
+      if (lineCheck(diagonal)) {
+        this._isReady = false;
         return { isGameOver: true, result: diagonal[0] as Player };
+      }
     }
 
-    if (board.flat().every(item => item !== ''))
+    if (board.flat().every(item => item !== '')) {
+      this._isReady = false;
       return { isGameOver: true, result: 'tie' };
+    }
 
     return { isGameOver: false, result: 'tie' };
   }

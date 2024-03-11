@@ -12,10 +12,12 @@
     "@types/uuid": "^9.0.8",
     "@types/ws": "^8.5.10",
     "nodemon": "^3.1.0",
+    "tic-tac-toe-message": "^0.1.5",
     "typescript": "^5.3.3"
   },
   "scripts": {
     "compile": "tsc",
-    "dev": "nodemon -e ts --exec 'tsc && node --trace-warnings --inspect=0.0.0.0:9229 ./dist/server.js || exit 1'"
+    "dev": "nodemon -e ts --exec 'tsc && node --trace-warnings --inspect=0.0.0.0:9229 ./dist/server.js || exit 1'",
+    "start": "tsc && node dist/server.js"
   }
 }
