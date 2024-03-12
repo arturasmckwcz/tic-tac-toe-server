@@ -20,6 +20,13 @@ const users: User[] = [];
 
 const logMsg = createLogger('Message').info;
 
+function userDelete(userId: string) {
+  const idx = users.findIndex(({ id }) => id === userId);
+  if (idx >= 0) {
+    users.splice(idx, 1);
+  }
+}
+
 export function startWsServer(
   server: http.Server<typeof http.IncomingMessage, typeof http.ServerResponse>,
 ) {
@@ -27,16 +34,24 @@ export function startWsServer(
 
   setInterval(() => {
     broadcast(JSON.stringify({ action: Action.KEEP_ALIVE }), users);
+    console.log(
+      'DEBUG:ws:k-a:users',
+      users.map(({ name, id }) => ({ name, id })),
+    );
     const keepAliveLastTime = Date.now() - keepAliveTimeout;
-    const deadUsers = users.filter(({ id, keepAlive }) => {
+    const usersDead = users.filter(({ keepAlive }) => {
       return keepAlive < keepAliveLastTime;
     });
-    deadUsers.forEach(({ id: deadId, connection }, i) => {
-      logUser('kick out:', { ...users[i], connection: undefined });
-      connection.close(4000, 'keep alive timed out');
-      gamesDeleteByUser(deadId);
-      const idx = users.findIndex(({ id }) => id === deadId);
-      if (idx >= 0) users.splice(idx, 1);
+    console.log(
+      'DEBUG:ws:k-a:keepAliveLastTime:deadUsers',
+      keepAliveLastTime,
+      usersDead.map(({ name, id }) => ({ name, id })),
+    );
+    usersDead.forEach(userDead => {
+      userDead.connection.close(4000, 'keep alive timed out');
+      logUser('kick out:', { ...userDead, connection: undefined });
+      gamesDeleteByUser(userDead.id);
+      userDelete(userDead.id);
     });
   }, keepAliveTimeout);
 
@@ -107,8 +122,9 @@ export function startWsServer(
     });
 
     connection.on('close', () => {
+      console.log('DEBUG:ws:close:user:', { ...user, connection: undefined });
       gamesDeleteByUser(user.id);
-      users.splice(idx, 1);
+      userDelete(user.id);
     });
   });
 }
