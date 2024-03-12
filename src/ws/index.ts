@@ -4,7 +4,7 @@ import { WebSocketServer } from 'ws';
 import { Action } from 'tic-tac-toe-message';
 import { keepAliveTimeout, maxUsers } from '../app.config';
 import { gamesDeleteByUser } from '../game';
-import { User } from '../user';
+import { User, logUser } from '../user';
 import {
   actionGamesForUsr,
   actionJoinGame,
@@ -18,8 +18,7 @@ import {
 
 const users: User[] = [];
 
-const logOut = createLogger('Outgoing message:').info;
-const logIn = createLogger('Incoming message:').info;
+const logMsg = createLogger('Message').info;
 
 export function startWsServer(
   server: http.Server<typeof http.IncomingMessage, typeof http.ServerResponse>,
@@ -32,7 +31,8 @@ export function startWsServer(
     const deadUsers = users.filter(({ id, keepAlive }) => {
       return keepAlive < keepAliveLastTime;
     });
-    deadUsers.forEach(({ id: deadId, connection }) => {
+    deadUsers.forEach(({ id: deadId, connection }, i) => {
+      logUser('kick out:', { ...users[i], connection: undefined });
       connection.close(4000, 'keep alive timed out');
       gamesDeleteByUser(deadId);
       const idx = users.findIndex(({ id }) => id === deadId);
@@ -44,8 +44,8 @@ export function startWsServer(
     // ws://localhost:4000?name=Johnny&userId=blah-blah-blah
     const { name, userId } = getUserFromRequest(request);
     const userIdx = users.findIndex(({ id }) => userId === id);
-    let user: User;
-    let idx: number = -1;
+    let user: User; // TODO: move user state to User model
+    let idx: number = -1; // TODO: move index from state to calc in an util
 
     if (userIdx >= 0) {
       user = users[userIdx];
@@ -66,10 +66,11 @@ export function startWsServer(
     if (process.env.NODE_ENV === 'develop') {
       const send = connection.send;
       connection.send = function (...args) {
-        logOut(user.name, args[0].toString());
+        logMsg('outgoing', user.name, args[0].toString());
         return send.apply(this, args as any);
       };
     }
+
     connection.send(
       JSON.stringify({
         action: Action.CONNECTION,
@@ -79,7 +80,8 @@ export function startWsServer(
 
     connection.on('message', data => {
       const message = parseMessage(data.toString());
-      logIn(user.name, message);
+      if (process.env.NODE_ENV === 'develop')
+        logMsg('incoming', user.name, message);
 
       if (message) {
         switch (message.action) {

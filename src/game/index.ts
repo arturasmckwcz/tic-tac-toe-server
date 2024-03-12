@@ -11,7 +11,7 @@ export interface GamesAvailable {
 
 const games: Game[] = [];
 
-const gameLog = createLogger('Game constructor').info;
+const logGame = createLogger('Game').info;
 
 function getRandomPlayer() {
   return Math.round(Math.random()) ? Player.X : Player.O;
@@ -124,7 +124,7 @@ export class Game {
     this.boardSize = 3;
     this._isReady = false;
     if (process.env.NODE_ENV === 'develop') {
-      gameLog({ ...this, o: this.o?.name, x: this.x?.name });
+      logGame('constructor', { ...this, o: this.o?.name, x: this.x?.name });
     }
   }
 
