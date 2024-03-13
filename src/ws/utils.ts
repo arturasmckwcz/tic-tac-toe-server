@@ -1,6 +1,4 @@
-import http from 'http';
 import { Action, Message, Move, Player } from 'tic-tac-toe-message';
-import url from 'url';
 import {
   gameCreate,
   gameDelete,
@@ -15,20 +13,6 @@ import { User } from '../user';
 interface GameNewJoin {
   gameId: string;
   player: Player;
-}
-
-export function createLogger(prefix: string) {
-  return {
-    info: function (...args: any) {
-      console.log(prefix, ...args);
-    },
-  };
-}
-
-export function getUserFromRequest(request: http.IncomingMessage) {
-  const name = url.parse(request.url || '', true).query?.name || 'noname';
-  const userId = url.parse(request.url || '', true).query?.userId || '';
-  return { name, userId };
 }
 
 function isValueValid<E extends Action | Player>(enumObject: Object, value: E) {
@@ -80,14 +64,6 @@ export function parseMessage(data: string): Message | null {
     console.error(error);
     return null;
   }
-}
-
-export function broadcast(message: string, users: User[]) {
-  users.forEach(({ id, connection }) => {
-    if (connection.OPEN) {
-      connection.send(message);
-    }
-  });
 }
 
 export function actionGamesForUsr(user: User) {
