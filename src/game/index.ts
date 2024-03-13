@@ -2,7 +2,7 @@ import { v4 as uuid } from 'uuid';
 
 import { Move, Player } from 'tic-tac-toe-message';
 import { User } from '../user';
-import { createLogger } from '../ws/utils';
+import { createLogger } from '../utils';
 
 export interface GamesAvailable {
   gameId: string;
