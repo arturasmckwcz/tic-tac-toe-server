@@ -8,7 +8,7 @@ import {
   gameJoin,
   gameMakeMove,
 } from '../game';
-import { User } from '../user';
+import { User, broadcast } from '../user';
 
 interface GameNewJoin {
   gameId: string;
