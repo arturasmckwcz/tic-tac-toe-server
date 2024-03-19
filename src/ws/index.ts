@@ -1,5 +1,10 @@
 import http from 'http';
-import { Action } from 'tic-tac-toe-message';
+import {
+  Action,
+  GameMoveForward,
+  GameNewJoin,
+  Message,
+} from 'tic-tac-toe-message';
 import { WebSocketServer } from 'ws';
 
 import { gamesDeleteByUser } from '../game';
@@ -49,17 +54,20 @@ export function startWsServer(
 
       if (message) {
         switch (message.action) {
-          case Action.GAMES_FOR_USR:
+          case Action.GAMES_AVAILABLE:
             actionGamesForUsr(user);
             break;
           case Action.JOIN_GAME:
-            actionJoinGame(user, message);
+            actionJoinGame(
+              user,
+              message as Message<GameNewJoin & { gameId: string }>,
+            );
             break;
           case Action.NEW_GAME:
-            actionNewGame(user, message);
+            actionNewGame(user, message as Message<GameNewJoin>);
             break;
           case Action.MOVE:
-            actionMove(user, message);
+            actionMove(user, message as Message<GameMoveForward>);
             break;
           case Action.KEEP_ALIVE:
             user.keepAlive = Date.now();

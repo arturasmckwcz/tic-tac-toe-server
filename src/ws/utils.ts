@@ -1,4 +1,11 @@
-import { Action, Message, Move, Player } from 'tic-tac-toe-message';
+import {
+  Action,
+  GameMoveForward,
+  GameNewJoin,
+  Message,
+  Payload,
+  Player,
+} from 'tic-tac-toe-message';
 import {
   gameCreate,
   gameDelete,
@@ -10,18 +17,13 @@ import {
 } from '../game';
 import { User, broadcast } from '../user';
 
-interface GameNewJoin {
-  gameId: string;
-  player: Player;
-}
-
 function isValueValid<E extends Action | Player>(enumObject: Object, value: E) {
   return Object.entries(enumObject)
     .map(([_, value]) => value)
     .includes(value);
 }
 
-export function parseMessage(data: string): Message | null {
+export function parseMessage(data: string): Message<Payload> | null {
   // 1. does it parse into an obj?
   // 2. has parsed obj required structure, i.e. {action:Action; payload:Payload}?
   // 3. is action value valid?
@@ -31,17 +33,19 @@ export function parseMessage(data: string): Message | null {
     const message = JSON.parse(data);
 
     const action = message.action;
-    if (!isValueValid(Action, action)) return null;
+    if (!isValueValid<Action>(Action, action)) return null;
 
-    let isPayloadOk = false;
     const payload = message.payload;
     switch (action) {
       case Action.NEW_GAME:
-        if (payload?.player && isValueValid(Player, payload?.player))
-          isPayloadOk = true;
+        if (
+          payload.hasOwnProperty('player') &&
+          isValueValid<Player>(Player, payload.player)
+        )
+          return message;
         break;
       case Action.JOIN_GAME:
-        if (payload?.gameId) isPayloadOk = true;
+        if (payload.hasOwnProperty('gameId')) return message;
         break;
       case Action.MOVE:
         if (
@@ -50,16 +54,14 @@ export function parseMessage(data: string): Message | null {
           payload?.move.hasOwnProperty('h') &&
           payload?.move.hasOwnProperty('v')
         )
-          isPayloadOk = true;
+          return message;
         break;
-      case Action.GAMES_FOR_USR:
+      case Action.GAMES_AVAILABLE:
       case Action.KEEP_ALIVE:
-        isPayloadOk = true;
-        break;
+        return message;
       default:
-        break;
     }
-    return isPayloadOk ? message : null;
+    return null;
   } catch (error) {
     console.error(error);
     return null;
@@ -69,7 +71,7 @@ export function parseMessage(data: string): Message | null {
 export function actionGamesForUsr(user: User) {
   user.connection.send(
     JSON.stringify({
-      action: Action.GAMES_AVAILABLE,
+      action: Action.GAMES_AVAILABLE_RESPONSE,
       payload: {
         games: gameIdsAvailable(user.id),
       },
@@ -77,29 +79,32 @@ export function actionGamesForUsr(user: User) {
   );
 }
 
-export function actionJoinGame(user: User, message: Message) {
-  const payloadJoinGame = message.payload as GameNewJoin;
-  const player = gameJoin(payloadJoinGame.gameId, user, payloadJoinGame.player);
+export function actionJoinGame(
+  user: User,
+  message: Message<GameNewJoin & { gameId: string }>,
+) {
+  const payload = message.payload;
+  const player = gameJoin(payload.gameId, user, payload.player);
   user.connection.send(
     JSON.stringify({
       action: Action.JOIN_GAME_RESPONSE,
-      payload: { gameId: payloadJoinGame.gameId, player },
+      payload: { gameId: payload.gameId, player },
     }),
   );
   if (player) {
-    const opponent = gameGetOpponent(payloadJoinGame.gameId, user.id);
+    const opponent = gameGetOpponent(payload.gameId, user.id);
     if (opponent)
       opponent.connection.send(
         JSON.stringify({
           action: Action.MOVE_FORWARD,
-          payload: { gameId: payloadJoinGame.gameId, move: null },
+          payload: { gameId: payload.gameId, move: null },
         }),
       );
   }
 }
 
-export function actionNewGame(user: User, message: Message) {
-  const payloadNewGame = message.payload as GameNewJoin;
+export function actionNewGame(user: User, message: Message<GameNewJoin>) {
+  const payloadNewGame = message.payload;
   user.connection.send(
     JSON.stringify({
       action: Action.NEW_GAME_RESPONSE,
@@ -111,11 +116,11 @@ export function actionNewGame(user: User, message: Message) {
   );
 }
 
-export function actionMove(user: User, message: Message) {
-  const payloadMove = message.payload as { gameId: string; move: Move | null };
-  if (payloadMove) {
-    const gameId = payloadMove.gameId;
-    const move = payloadMove.move;
+export function actionMove(user: User, message: Message<GameMoveForward>) {
+  const payload = message.payload;
+  if (payload) {
+    const gameId = payload.gameId;
+    const move = payload.move;
     if (!gameId || !move) return;
     const users = gameGetUsers(gameId);
     const { isGameOver, result } = gameMakeMove(gameId, user.id, move);
@@ -133,7 +138,7 @@ export function actionMove(user: User, message: Message) {
         JSON.stringify({ action: Action.GAME_OVER, payload: result }),
         users,
       );
-      gameDelete(payloadMove.gameId);
+      gameDelete(payload.gameId);
     } else {
       user.connection.send(
         JSON.stringify({
