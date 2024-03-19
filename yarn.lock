@@ -3097,10 +3097,10 @@ test-exclude@^6.0.0:
     glob "^7.1.4"
     minimatch "^3.0.4"
 
-tic-tac-toe-message@^0.1.5:
-  version "0.1.5"
-  resolved "https://registry.yarnpkg.com/tic-tac-toe-message/-/tic-tac-toe-message-0.1.5.tgz#ab4a2af66e648507fd55077e5901d0ed09e9d0e1"
-  integrity sha512-ZNT80yqNMi3uB22HUIJ/YP+jcQnLfB0qfnsNqeB28TYUT7rmBKLt1SzGDhlNi0zM3USoj+VlX6JmMf8bF6X7gw==
+tic-tac-toe-message@^0.1.7:
+  version "0.1.7"
+  resolved "https://registry.yarnpkg.com/tic-tac-toe-message/-/tic-tac-toe-message-0.1.7.tgz#541eaa5ba2b3e9951b0252d60592ed2a0e9b0d71"
+  integrity sha512-Fl94aBWNjrxpkgcERicAiV6qupet6wqkbPECI53QC3XUtnpK2yCk5lIM7V71ld7Gt6XpB2DZoCccGp9384FEmw==
 
 tmpl@1.0.5:
   version "1.0.5"
