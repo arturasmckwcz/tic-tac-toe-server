@@ -17,7 +17,10 @@ import {
 } from '../game';
 import { User, broadcast } from '../user';
 
-function isValueValid<E extends Action | Player>(enumObject: Object, value: E) {
+export function isValueValid<E extends Action | Player>(
+  enumObject: Object,
+  value: E,
+) {
   return Object.entries(enumObject)
     .map(([_, value]) => value)
     .includes(value);
@@ -29,6 +32,7 @@ export function parseMessage(data: string): Message<Payload> | null {
   // 3. is action value valid?
   // 4. does payload structure match action value?
   // 5. return message if it's okay otherwise null
+  // TODO: maybe relocate this function to tic-tac-toe-message package?
   try {
     const message = JSON.parse(data);
 
@@ -39,18 +43,18 @@ export function parseMessage(data: string): Message<Payload> | null {
     switch (action) {
       case Action.NEW_GAME:
         if (
-          payload.hasOwnProperty('player') &&
+          payload?.hasOwnProperty('player') &&
           isValueValid<Player>(Player, payload.player)
         )
           return message;
         break;
       case Action.JOIN_GAME:
-        if (payload.hasOwnProperty('gameId')) return message;
+        if (payload?.hasOwnProperty('gameId')) return message;
         break;
       case Action.MOVE:
         if (
-          payload.hasOwnProperty('gameId') &&
-          payload.hasOwnProperty('move') &&
+          payload?.hasOwnProperty('gameId') &&
+          payload?.hasOwnProperty('move') &&
           payload?.move.hasOwnProperty('h') &&
           payload?.move.hasOwnProperty('v')
         )
@@ -104,13 +108,13 @@ export function actionJoinGame(
 }
 
 export function actionNewGame(user: User, message: Message<GameNewJoin>) {
-  const payloadNewGame = message.payload;
+  const payload = message.payload;
   user.connection.send(
     JSON.stringify({
       action: Action.NEW_GAME_RESPONSE,
       payload: {
-        gameId: gameCreate({ player: payloadNewGame.player, user }),
-        player: payloadNewGame.player,
+        gameId: gameCreate({ player: payload.player, user }),
+        player: payload.player,
       },
     }),
   );
@@ -122,7 +126,6 @@ export function actionMove(user: User, message: Message<GameMoveForward>) {
     const gameId = payload.gameId;
     const move = payload.move;
     if (!gameId || !move) return;
-    const users = gameGetUsers(gameId);
     const { isGameOver, result } = gameMakeMove(gameId, user.id, move);
     if (!result) {
       user.connection.send(
@@ -134,6 +137,7 @@ export function actionMove(user: User, message: Message<GameMoveForward>) {
       return;
     }
     if (isGameOver) {
+      const users = gameGetUsers(gameId);
       broadcast(
         JSON.stringify({ action: Action.GAME_OVER, payload: result }),
         users,
