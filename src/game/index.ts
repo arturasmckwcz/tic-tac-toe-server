@@ -90,9 +90,9 @@ export function gameDelete(gameId: string) {
   if (idx !== null) games.splice(idx, 1);
 }
 
-export function gameMakeMove(gameId: string, playerId: string, move: Move) {
+export function gameMakeMove(gameId: string, userId: string, move: Move) {
   const { game } = gameGetById(gameId);
-  if (game && game.move(playerId, move)) {
+  if (game && game.move(userId, move)) {
     return game.conclude();
   }
   return { isGameOver: false, result: null };
