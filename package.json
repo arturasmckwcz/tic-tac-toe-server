@@ -21,7 +21,7 @@
     "jest": "^29.7.0",
     "nodemon": "^3.1.0",
     "sinon": "^17.0.1",
-    "tic-tac-toe-message": "^0.1.5",
+    "tic-tac-toe-message": "^0.1.7",
     "ts-jest": "^29.1.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
